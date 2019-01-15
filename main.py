@@ -1,4 +1,13 @@
-import pandas
+import csv
 
-df = pandas.read_csv('mygpa.csv')
-print(df)
+with open('mygpa.csv') as fp:
+	fr = csv.reader(fp, delimiter=',')
+	line_count = 0
+	for row in csv_reader:
+		if line_count == 0:
+			print(f'Column names are {", ".join(row)}')
+			line_count += 1
+		else:
+            print(f'\t{row[0]} works in the {row[1]} department, and was born in {row[2]}.')
+            line_count += 1
+	print(f'Processed {line_count} lines.')
