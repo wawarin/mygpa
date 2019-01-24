@@ -4,3 +4,4 @@ python:
 script:
   - python main.py
   - select user_id, course_id, course_name from mygpa
+  - exit
