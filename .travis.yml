@@ -2,6 +2,4 @@ language: python
 python:
   - "3.6"
 script:
-  - python main.py
-  - select user_id, course_id, course_name from mygpa
-  - exit
+  - python main.py < testing.txt
