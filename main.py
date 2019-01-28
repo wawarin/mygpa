@@ -6,17 +6,21 @@ class MyGPA:
   
     def __init__(self):
         self.running = True
-        self.kw = ("SELECT", "FROM", "WHERE", "LIMIT")
+        self.kw = ("SELECT", "FROM", "WHERE", "LIMIT", "INSERT", "INTO", "VALUES")
+        self.header = []
 
     def commandSplit(self, cmd):
-        cmd = re.split(" |,|'|\"|=", cmd)
+        cmd = re.split(" |\(|\)|,|'|\"|=", cmd)
 
         while "" in cmd:
             cmd.remove("")
         
+        while None in cmd:
+            cmd.remove(None)
+        
         return cmd
     
-    def openFile(self, file, cols, delimiter=","):
+    def readFile(self, file, cols, delimiter=","):
         try:
             with open(file + ".csv") as table:
                 table_reader = csv.DictReader(table, delimiter=",")
@@ -43,16 +47,54 @@ class MyGPA:
                 print()
         except FileNotFoundError:
             print("TableNotFoundError:", "No such table: " + file)
+        except KeyError:
+            print("Column name error")
+    
+    def appendFile(self, file, cols, vals):
+        if not self.header:
+            with open(file + ".csv", mode="r") as fo:
+                for row in csv.DictReader(fo, delimiter=","):
+                    for i in row:
+                        self.header.append(i)
+                    break
+            # print(header)
+        with open(file + ".csv", mode="a") as fw:
+            writer = csv.DictWriter(fw, self.header)
+            # writer.writeheader()
+            data = {}
+            index = 0
+            for i in range(len(self.header)):
+                try:
+                    if cols[index] == self.header[i]:
+                        data[cols[index]] = vals[index]
+                        index += 1
+                    else:
+                        data[self.header[i]] = ""
+                except IndexError:
+                    data[self.header[i]] = ""
+
+            # fw.newlines()
+            writer.writerow(data)
+    
+    def writeFile(self, file, cols, cons):
+        if not self.header:
+            with open(file + ".csv", mode="r") as fo:
+                for row in csv.DictReader(fo, delimiter=","):
+                    for i in row:
+                        self.header.append(i)
+                    break
+        
+        with open(file + ".csv", mode="w") as fw:
+            pass
     
     def commandMode(self, cmd):
         if cmd[0].upper() in self.kw:
             if cmd[0].upper() == "SELECT":
                 self.select(cmd[1:])
             elif cmd[0].upper() == "INSERT":
-                print()
+                self.insertVal(cmd[1:])
             elif cmd[0].upper() == "UPDATE":
                 print()
-        return 
     
     def select(self, cmd):
         newcmd = []
@@ -63,7 +105,31 @@ class MyGPA:
                 newcmd.append(i)
         cols = cmd[:newcmd.index("FROM")]
         table = cmd[newcmd.index("FROM") + 1]
-        self.openFile(table, cols)
+        self.readFile(table, cols)
+    
+    def insertVal(self, cmd):
+        cmd = self.upperKW(cmd)
+        cols = cmd[2:cmd.index("VALUES")]
+        vals = cmd[cmd.index("VALUES") + 1:]
+        table = cmd[1]
+        self.appendFile(table, cols, vals)
+        # print(cmd)
+    
+    def updateVal(self, cmd):
+        cmd = self.upperKW(cmd)
+        cols = cmd[cmd.index("SET") + 1:cmd.index("WHERE")]
+        cons = cmd[cmd.index("WHERE") + 1:]
+        table = cmd[0]
+        self.writeFile(table, cols, cons)
+    
+    def upperKW(self, cmd):
+        res = []
+        for i in cmd:
+            if i.upper() in self.kw:
+                res.append(i.upper())
+            else:
+                res.append(i)
+        return res
     
     def main(self):
         while self.running:
