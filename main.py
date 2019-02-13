@@ -6,7 +6,7 @@ class MyGPA:
   
     def __init__(self):
         self.running = True
-        self.kw = ("SELECT", "FROM", "WHERE", "LIMIT", "INSERT", "INTO", "VALUES")
+        self.kw = ("SELECT", "FROM", "WHERE", "LIMIT", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE")
         self.header = []
 
     def commandSplit(self, cmd):
@@ -20,10 +20,12 @@ class MyGPA:
         
         return cmd
     
-    def readFile(self, file, cols, delimiter=","):
+    def readFile(self, file, cols, conds=None, delimiter=","):
         try:
             with open(file + ".csv") as table:
                 table_reader = csv.DictReader(table, delimiter=",")
+                # tr = csv.reader(table, delimiter=",")
+                # cells = list(tr)
                 line_count = 0
                 for row in table_reader:
                     if line_count == 0:
@@ -34,17 +36,51 @@ class MyGPA:
                             else:
                                 print("{:>13}  ".format(c), end="")
                         print()
+                        if cols != ["*"]:
+                            if conds is not None:
+                                if row[conds[0]] == conds[1]:
+                                    for i in cols:
+                                        print("{:>13.13}  ".format(row[i]), end="")
+                                    print()
+                            else:
+                                for i in cols:
+                                    print("{:>13.13}  ".format(row[i]), end="")
+                                print()
+                        else:
+                            if conds is not None:
+                                if row[conds[0]] == conds[1]:
+                                    for i in row:
+                                        print("{:>13.13}  ".format(row[i]), end="")
+                                    print()
+                            else:
+                                for i in row:
+                                    print("{:>13.13}  ".format(row[i]), end="")
+                                print()
                         line_count += 1
                     else:
                         if cols != ["*"]:
-                            for i in cols:
-                                print("{:>13.13}  ".format(row[i]), end="")
+                            if conds is not None:
+                                if row[conds[0]] == conds[1]:
+                                    for i in cols:
+                                        print("{:>13.13}  ".format(row[i]), end="")
+                                    print()
+                            else:
+                                for i in cols:
+                                    print("{:>13.13}  ".format(row[i]), end="")
+                                print()
                         else:
-                            for i in row:
-                                print("{:>13.13}  ".format(row[i]), end="")
-                        print()
+                            if conds is not None:
+                                if row[conds[0]] == conds[1]:
+                                    for i in row:
+                                        print("{:>13.13}  ".format(row[i]), end="")
+                                    print()
+                            else:
+                                for i in row:
+                                    print("{:>13.13}  ".format(row[i]), end="")
+                                print()
                         line_count += 1
                 print()
+                # print(cells)
         except FileNotFoundError:
             print("TableNotFoundError:", "No such table: " + file)
         except KeyError:
@@ -58,7 +94,7 @@ class MyGPA:
                         self.header.append(i)
                     break
             # print(header)
-        with open(file + ".csv", mode="a") as fw:
+        with open(file + ".csv", mode="a", newline='') as fw:
             writer = csv.DictWriter(fw, self.header)
             # writer.writeheader()
             data = {}
@@ -75,18 +111,53 @@ class MyGPA:
 
             # fw.newlines()
             writer.writerow(data)
+            print('Successfully inserted')
     
-    def writeFile(self, file, cols, cons):
+    def writeFile(self, file, cols, conds, action='update'):
         if not self.header:
             with open(file + ".csv", mode="r") as fo:
                 for row in csv.DictReader(fo, delimiter=","):
                     for i in row:
                         self.header.append(i)
                     break
-        
-        with open(file + ".csv", mode="w") as fw:
-            pass
+        with open(file + ".csv", mode="r") as fr:
+            t = csv.reader(fr, delimiter=",")
+            r = list(t)
+
+        try:
+            col = r[0].index(conds[0])
+            try:
+                row_arr = [r[i][col] for i in range(1, len(r))]
+                row = row_arr.index(conds[1]) + 1
+                try:
+                    if cols is not None:
+                        for i in range(0, len(cols), 2):
+                            r[row][r[0].index(cols[i])] = cols[i + 1]
+                    if action == "delete":
+                        while True:
+                            try:
+                                num = row_arr.index(conds[1])
+                                r.pop(num + 1)
+                                row_arr.pop(num)
+                            except ValueError:
+                                break
+                    with open(file + ".csv", mode="w", newline="") as fw:
+                        writer = csv.writer(fw)
+                        writer.writerows(r)
+                    if action == 'update':
+                        print("Update table successfully.")
+                    elif action == 'delete':
+                        print("Delete values successfully.")
+                except ValueError:
+                    print("ColumnError: Column '{}' does not exist.".format(cols[i]))
+            except ValueError:
+                print("ConditionError: Value '{}' does not exist.".format(conds[1]))
+        except ValueError:
+            print("ConditionError: Column '{}' does not exist.".format(conds[0]))
     
+    # def deleteRow(self, file, cols, conds):
+    #     pass
+
     def commandMode(self, cmd):
         if cmd[0].upper() in self.kw:
             if cmd[0].upper() == "SELECT":
@@ -94,18 +165,18 @@ class MyGPA:
             elif cmd[0].upper() == "INSERT":
                 self.insertVal(cmd[1:])
             elif cmd[0].upper() == "UPDATE":
-                print()
+                self.updateVal(cmd[1:])
+            elif cmd[0].upper() == "DELETE":
+                self.deleteRow(cmd[2:])
     
     def select(self, cmd):
-        newcmd = []
-        for i in cmd:
-            if i.upper() in self.kw:
-                newcmd.append(i.upper())
-            else:
-                newcmd.append(i)
-        cols = cmd[:newcmd.index("FROM")]
-        table = cmd[newcmd.index("FROM") + 1]
-        self.readFile(table, cols)
+        cmd = self.upperKW(cmd)
+        cols = cmd[:cmd.index("FROM")]
+        table = cmd[cmd.index("FROM") + 1]
+        conds = None
+        if 'WHERE' in cmd:
+            conds = cmd[cmd.index("WHERE") + 1:]
+        self.readFile(table, cols, conds=conds)
     
     def insertVal(self, cmd):
         cmd = self.upperKW(cmd)
@@ -118,9 +189,18 @@ class MyGPA:
     def updateVal(self, cmd):
         cmd = self.upperKW(cmd)
         cols = cmd[cmd.index("SET") + 1:cmd.index("WHERE")]
-        cons = cmd[cmd.index("WHERE") + 1:]
+        conds = cmd[cmd.index("WHERE") + 1:]
         table = cmd[0]
-        self.writeFile(table, cols, cons)
+        # print(cols, conds, table)
+        self.writeFile(table, cols, conds)
+    
+    def deleteRow(self, cmd):
+        cmd = self.upperKW(cmd)
+        # cols = cmd[cmd.index("SET") + 1:cmd.index("WHERE")]
+        conds = cmd[cmd.index("WHERE") + 1:]
+        table = cmd[0]
+        # print(cols, conds, table)
+        self.writeFile(table, None, conds, 'delete')
     
     def upperKW(self, cmd):
         res = []
@@ -136,6 +216,7 @@ class MyGPA:
             incmd = input(">> ")
 
             cmd = self.commandSplit(incmd)
+            # print(cmd)
 
             if len(cmd) == 1:
                 if cmd[0].upper() == "EXIT":
@@ -154,6 +235,31 @@ class MyGPA:
 if __name__ == "__main__":
     app = MyGPA()
     app.main()
+
+    # r = [[ 'a',  'b',  'c',  'd'],
+    #      ['a1', 'b1', 'c1', 'd1'],
+    #      ['a2', 'b2', 'c2', 'd2'],
+    #      ['a3', 'b3', 'c3', 'd3']]
+    
+    # col = r[0].index('d')
+    # row = [r[i][col] for i in range(1, len(r))].index('d2') + 1
+
+    # r[row][r[0].index('b')] = 'b22'
+
+    # print(r)
+
+    # import operator
+
+    # logic = {
+    #     "AND": operator.and_,
+    #     "OR": operator.or_,
+    #     "NOT": operator.is_not
+    # }
+
+    # id = 2 AND user != 5 OR NOT (a = 2 AND b = 5)
+
+    # print(logic['NOT'](1, 1))
+
 
 
 # with open('mygpa.csv') as csv_file:
